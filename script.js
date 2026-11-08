@@ -71,28 +71,28 @@
 
   /* ---------- العدّادات ---------- */
   function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
-  function runCounter(el) {
-    var target = parseFloat(el.dataset.target);
-    var start = parseFloat(el.dataset.start || '0');
-    var suffix = el.dataset.suffix || '';
-    var dur = parseFloat(el.dataset.duration || '1800');
-    if (reduce) { el.textContent = fmt(target) + suffix; return; }
-    var t0 = null;
+  var counters = document.querySelectorAll('[data-target]');
+  var running = new WeakMap();
+  function stopCounter(el) { var id = running.get(el); if (id) cancelAnimationFrame(id); running.delete(el); }
+  function finalText(el) { return fmt(parseFloat(el.dataset.target)) + (el.dataset.suffix || ''); }
+  function playCounter(el) {
+    stopCounter(el);
+    var target = parseFloat(el.dataset.target), start = parseFloat(el.dataset.start || '0');
+    var dur = parseFloat(el.dataset.duration || '1800'), t0 = null;
     function step(ts) {
       if (t0 === null) t0 = ts;
-      var p = Math.min(1, (ts - t0) / dur);
-      var eased = 1 - Math.pow(1 - p, 3);
-      el.textContent = fmt(start + (target - start) * eased) + (p === 1 ? suffix : '');
-      if (p < 1) requestAnimationFrame(step);
+      var p = Math.min(1, (ts - t0) / dur), eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = p === 1 ? finalText(el) : fmt(start + (target - start) * eased);
+      if (p < 1) running.set(el, requestAnimationFrame(step));
     }
-    requestAnimationFrame(step);
+    running.set(el, requestAnimationFrame(step));
   }
-  var counters = document.querySelectorAll('[data-target]');
-  if ('IntersectionObserver' in window) {
-    counters.forEach(function (el) { el.textContent = fmt(parseFloat(el.dataset.start || '0')); });
+  counters.forEach(function (el) { el.textContent = finalText(el); });
+  if ('IntersectionObserver' in window && !reduce) {
     var co = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
-        if (en.isIntersecting) { runCounter(en.target); co.unobserve(en.target); }
+        if (en.isIntersecting) playCounter(en.target);
+        else { stopCounter(en.target); en.target.textContent = finalText(en.target); }
       });
     }, { threshold: 0.6 });
     counters.forEach(function (el) { co.observe(el); });
@@ -110,6 +110,10 @@
       var img = new Image();
       img.onload = function () {
         img.alt = el.dataset.alt || '';
+        if (!el.classList.contains('clip') && img.naturalWidth && img.naturalHeight && !el.closest('.wr-fig') && !el.classList.contains('logo-tile')) {
+          el.style.setProperty('--r', Math.min(2.2, Math.max(0.45, img.naturalWidth / img.naturalHeight)).toFixed(3));
+        }
+        el.classList.add('zoomable');
         img.loading = 'lazy';
         img.decoding = 'async';
         el.appendChild(img);
@@ -190,6 +194,7 @@
         node = document.createElement('iframe'); node.src = 'https://www.youtube-nocookie.com/embed/' + m[1] + '?rel=0&modestbranding=1&playsinline=1';
       } else if (/\.(mp4|webm|mov)(\?.*)?$/i.test(u)) {
         node = document.createElement('video'); node.src = u; node.controls = true; node.playsInline = true; node.preload = 'metadata';
+        (function (v, host) { v.addEventListener('error', function () { if (v.parentNode) v.parentNode.removeChild(v); host.classList.remove('ready'); }, true); v.addEventListener('loadedmetadata', function () { if (v.videoWidth && v.videoHeight) host.style.setProperty('--r', (v.videoWidth / v.videoHeight).toFixed(3)); }); })(node, el);
       } else { return; }
       if (node.tagName === 'IFRAME') { node.setAttribute('allowfullscreen', ''); node.setAttribute('loading', 'lazy'); node.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture'); node.title = 'مقطع'; }
       el.appendChild(node); el.classList.add('ready');
@@ -269,6 +274,42 @@
     setGroup(0);
   })();
 
+  /* ---------- عارض الصور ---------- */
+  (function () {
+    var lb = document.getElementById('lightbox');
+    if (!lb) return;
+    var img = document.getElementById('lb-img'), cnt = document.getElementById('lb-count');
+    var list = [], idx = 0, x0 = null;
+    function show(i) {
+      idx = (i + list.length) % list.length;
+      img.src = list[idx].currentSrc || list[idx].src; img.alt = list[idx].alt || '';
+      cnt.textContent = list.length > 1 ? (idx + 1) + ' / ' + list.length : '';
+      lb.classList.toggle('single', list.length < 2);
+    }
+    function close() { if (lb.close) lb.close(); else lb.removeAttribute('open'); }
+    document.addEventListener('click', function (e) {
+      var im = e.target.closest && e.target.closest('.slot.zoomable img');
+      if (!im || im.closest('.card') || im.closest('.logo-tile')) return;
+      var scope = im.closest('#modal-body, .mini, .shots, .loyal-media, .plan, .wr-stage') || im.parentNode;
+      list = [].slice.call(scope.querySelectorAll('.slot.zoomable img'));
+      var at = list.indexOf(im); if (at < 0) { list = [im]; at = 0; }
+      show(at);
+      if (lb.showModal) lb.showModal(); else lb.setAttribute('open', '');
+    });
+    lb.querySelector('.lb-close').addEventListener('click', close);
+    lb.querySelector('.lb-prev').addEventListener('click', function () { show(idx - 1); });
+    lb.querySelector('.lb-next').addEventListener('click', function () { show(idx + 1); });
+    lb.addEventListener('click', function (e) { if (e.target === lb || e.target.classList.contains('lb-in')) close(); });
+    lb.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') show(idx + 1); else if (e.key === 'ArrowRight') show(idx - 1);
+    });
+    lb.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', function (e) {
+      if (x0 === null) return; var dx = e.changedTouches[0].clientX - x0; x0 = null;
+      if (Math.abs(dx) > 50 && list.length > 1) show(idx + (dx < 0 ? 1 : -1));
+    });
+  })();
+
   /* ---------- المهن المتحركة في الرئيسية ---------- */
   (function () {
     var dataEl = document.getElementById('roles-data');
@@ -294,11 +335,23 @@
       void box.offsetWidth;
       box.classList.add('swap'); tag.classList.add('swap');
     }
-    if (reduce) return;
-    var timer = setInterval(function () { i = (i + 1) % roles.length; paint(); }, 3800);
-    document.addEventListener('visibilitychange', function () {
-      if (document.hidden) { clearInterval(timer); }
-      else { timer = setInterval(function () { i = (i + 1) % roles.length; paint(); }, 3800); }
+    var timer = null;
+    function auto() {
+      clearInterval(timer);
+      if (reduce || document.hidden) return;
+      timer = setInterval(function () { i = (i + 1) % roles.length; paint(); }, 3800);
+    }
+    function go(d) { i = (i + d + roles.length) % roles.length; paint(); auto(); }
+    document.addEventListener('visibilitychange', auto);
+    auto();
+    main.addEventListener('click', function () { go(1); });
+    next.addEventListener('click', function () { go(1); });
+    prev.addEventListener('click', function () { go(-1); });
+    [main, next, prev].forEach(function (el) {
+      el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(el === prev ? -1 : 1); }
+      });
     });
   })();
 
