@@ -110,7 +110,7 @@
       var img = new Image();
       img.onload = function () {
         img.alt = el.dataset.alt || '';
-        if (!el.classList.contains('clip') && img.naturalWidth && img.naturalHeight && !el.closest('.wr-fig') && !el.closest('.card') && !el.parentNode.classList.contains('plan') && !el.classList.contains('logo-tile')) {
+        if (!el.classList.contains('clip') && img.naturalWidth && img.naturalHeight && !el.closest('.card') && !el.parentNode.classList.contains('plan') && !el.classList.contains('logo-tile')) {
           el.style.setProperty('--r', Math.min(2.2, Math.max(0.45, img.naturalWidth / img.naturalHeight)).toFixed(3));
         }
         el.classList.add('zoomable');
