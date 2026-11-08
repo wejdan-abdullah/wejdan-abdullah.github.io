@@ -114,6 +114,7 @@
           el.style.setProperty('--r', Math.min(2.2, Math.max(0.45, img.naturalWidth / img.naturalHeight)).toFixed(3));
         }
         el.classList.add('zoomable');
+        if (el.closest('.wr-fig')) el.style.setProperty('--bg', 'url("' + img.src + '")');
         img.loading = 'lazy';
         img.decoding = 'async';
         el.appendChild(img);
