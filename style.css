@@ -556,7 +556,7 @@ dialog::backdrop { background: rgba(25, 14, 7, .7); -webkit-backdrop-filter: blu
 .gallery .slot.clip video, .gallery .slot.clip iframe { object-fit: contain; }
 @media (max-width: 700px) { .gallery.mosaic { gap: .45rem; } }
 
-.wr-view::after { content: "اضغطي للتكبير"; position: absolute; inset-block-end: .7rem; inset-inline-start: .7rem; padding: .25rem .8rem; border-radius: 999px; font-size: .78rem;
+.wr-view::after { content: "عرض الصورة"; position: absolute; inset-block-end: .7rem; inset-inline-start: .7rem; padding: .25rem .8rem; border-radius: 999px; font-size: .78rem;
   background: rgba(20, 12, 6, .6); color: #F3EED7; border: 1px solid rgba(243, 238, 215, .3); pointer-events: none; backdrop-filter: blur(4px); }
 
 /* ---------- الجوال بنفس ترتيب الآيباد: أعمدة مضغوطة بدل التكديس ---------- */
